@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.database import get_db
+from app.database import AsyncSessionLocal, get_db
 from app.tables import Score, Event, Group, EventStatus
 from app.services.leaderboard import get_leaderboard
 from app.services.ws_manager import ws_manager
@@ -110,9 +110,10 @@ async def websocket_endpoint(
 ):
     await ws_manager.connect(event_id, websocket)
     try:
-        leaderboard_data = await get_leaderboard(websocket.extra.get("db") or None, event_id)
+        async with AsyncSessionLocal() as db:
+            leaderboard_data = await get_leaderboard(db, event_id)
         await websocket.send_json(leaderboard_data)
-        
+
         while True:
             data = await websocket.receive_text()
     except WebSocketDisconnect:
