@@ -9,15 +9,21 @@ from sqlalchemy.ext.asyncio import (
 
 from app.tables import Base
 
-_raw_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./golf.db")
+def _normalise_db_url(raw: str) -> str:
+    """Normalise Neon/Railway postgres URLs for asyncpg compatibility."""
+    if raw.startswith("postgres://"):
+        raw = raw.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif raw.startswith("postgresql://") and "+asyncpg" not in raw:
+        raw = raw.replace("postgresql://", "postgresql+asyncpg://", 1)
+    # asyncpg uses ssl=require, not sslmode=require
+    raw = raw.replace("sslmode=require", "ssl=require")
+    # asyncpg doesn't support channel_binding
+    import re
+    raw = re.sub(r"[&?]channel_binding=[^&]*", "", raw)
+    return raw
 
-# Normalise Neon/Railway postgres:// → postgresql+asyncpg://
-if _raw_url.startswith("postgres://"):
-    DATABASE_URL = _raw_url.replace("postgres://", "postgresql+asyncpg://", 1)
-elif _raw_url.startswith("postgresql://") and "+asyncpg" not in _raw_url:
-    DATABASE_URL = _raw_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-else:
-    DATABASE_URL = _raw_url
+_raw_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./golf.db")
+DATABASE_URL = _normalise_db_url(_raw_url)
 
 _is_sqlite = DATABASE_URL.startswith("sqlite")
 

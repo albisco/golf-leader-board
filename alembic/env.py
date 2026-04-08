@@ -19,11 +19,14 @@ target_metadata = Base.metadata
 
 
 def get_url() -> str:
+    import re
     raw = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./golf.db")
     if raw.startswith("postgres://"):
-        return raw.replace("postgres://", "postgresql+asyncpg://", 1)
-    if raw.startswith("postgresql://") and "+asyncpg" not in raw:
-        return raw.replace("postgresql://", "postgresql+asyncpg://", 1)
+        raw = raw.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif raw.startswith("postgresql://") and "+asyncpg" not in raw:
+        raw = raw.replace("postgresql://", "postgresql+asyncpg://", 1)
+    raw = raw.replace("sslmode=require", "ssl=require")
+    raw = re.sub(r"[&?]channel_binding=[^&]*", "", raw)
     return raw
 
 
