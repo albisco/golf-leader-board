@@ -8,27 +8,27 @@
     <p class="breadcrumb"><a href="/">Home</a> / Create Event</p>
 </div>
 
-<form hx-post="/events" hx-swap="afterbegin" hx-on::after-request="if(event.detail.successful) window.location.href='/event/' + JSON.parse(event.detail.response).id + '/setup'">
+<form id="create-event-form">
     <div class="form-section">
         <h2>Event Details</h2>
-        
+
         <div class="form-group">
             <label for="name">Event Name</label>
             <input type="text" id="name" name="name" placeholder="e.g., Corporate Golf Day 2026" required class="input">
         </div>
-        
+
         <div class="form-group">
             <label for="date">Event Date</label>
             <input type="date" id="date" name="date" required class="input">
         </div>
-        
+
         <div class="form-group">
             <label for="format">Format</label>
             <select id="format" name="format" class="input">
                 <option value="ambrose_4ball" selected>4-Ball Ambrose</option>
             </select>
         </div>
-        
+
         <div class="form-group">
             <label for="hole_count">Number of Holes</label>
             <select id="hole_count" name="hole_count" class="input">
@@ -40,7 +40,7 @@
 
     <div class="form-section">
         <h2>Groups Setup</h2>
-        
+
         <div class="form-group">
             <label for="group_count">Number of Groups</label>
             <input type="number" id="group_count" name="group_count" min="1" max="20" value="4" class="input">
@@ -48,9 +48,63 @@
         </div>
     </div>
 
+    <div id="form-error" class="error-message" style="display:none"></div>
+
     <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Create Event</button>
+        <button type="submit" class="btn btn-primary" id="submit-btn">Create Event</button>
         <a href="/" class="btn btn-secondary">Cancel</a>
     </div>
 </form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('create-event-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('submit-btn');
+    const errorDiv = document.getElementById('form-error');
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+    errorDiv.style.display = 'none';
+
+    const formData = new FormData(this);
+    const groupCount = parseInt(formData.get('group_count')) || 4;
+
+    try {
+        const res = await fetch('/events', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                name: formData.get('name'),
+                date: formData.get('date'),
+                format: formData.get('format'),
+                hole_count: parseInt(formData.get('hole_count')),
+            })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Failed to create event');
+        }
+
+        const event = await res.json();
+
+        // Auto-create groups
+        for (let i = 1; i <= groupCount; i++) {
+            await fetch(`/events/${event.id}/groups`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name: `Group ${i}`, group_handicap: 0, players: [] })
+            });
+        }
+
+        window.location.href = `/event/${event.id}/setup`;
+    } catch (err) {
+        errorDiv.textContent = err.message;
+        errorDiv.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Create Event';
+    }
+});
+</script>
 {% endblock %}
