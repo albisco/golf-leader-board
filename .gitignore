@@ -1,0 +1,19 @@
+# Environment
+.env
+.env.*
+
+# Local database
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# gstack
+.gstack/
+
+# IDE
+.vscode/
+.idea/
