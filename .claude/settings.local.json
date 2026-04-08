@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp /home/vibe/.gstack/projects/golf-leader-board/vibe-unknown-design-20260408-152642.md /code/golf-leader-board/design.md)",
+      "Bash(cp /home/vibe/.gstack/projects/golf-leader-board/vibe-unknown-eng-review-test-plan-20260408-155046.md /code/golf-leader-board/test-plan.md)"
+    ]
+  }
+}
