@@ -2,9 +2,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.database import create_tables
-from app.routers import auth, events, scores, chat
+from app.routers import auth, events, scores, chat, pages
 
 
 @asynccontextmanager
@@ -32,11 +33,9 @@ app.include_router(auth.router)
 app.include_router(events.router)
 app.include_router(scores.router)
 app.include_router(chat.router)
+app.include_router(pages.router)
 
-
-@app.get("/")
-async def root():
-    return {"message": "Golf Leader Board API", "version": "1.0.0"}
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.get("/health")
