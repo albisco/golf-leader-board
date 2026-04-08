@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Create Event - Golf Leader Board{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Create New Event</h1>
+    <p class="breadcrumb"><a href="/">Home</a> / Create Event</p>
+</div>
+
+<form hx-post="/events" hx-swap="afterbegin" hx-on::after-request="if(event.detail.successful) window.location.href='/event/' + JSON.parse(event.detail.response).id + '/setup'">
+    <div class="form-section">
+        <h2>Event Details</h2>
+        
+        <div class="form-group">
+            <label for="name">Event Name</label>
+            <input type="text" id="name" name="name" placeholder="e.g., Corporate Golf Day 2026" required class="input">
+        </div>
+        
+        <div class="form-group">
+            <label for="date">Event Date</label>
+            <input type="date" id="date" name="date" required class="input">
+        </div>
+        
+        <div class="form-group">
+            <label for="format">Format</label>
+            <select id="format" name="format" class="input">
+                <option value="ambrose_4ball" selected>4-Ball Ambrose</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="hole_count">Number of Holes</label>
+            <select id="hole_count" name="hole_count" class="input">
+                <option value="9">9 Holes</option>
+                <option value="18" selected>18 Holes</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h2>Groups Setup</h2>
+        
+        <div class="form-group">
+            <label for="group_count">Number of Groups</label>
+            <input type="number" id="group_count" name="group_count" min="1" max="20" value="4" class="input">
+            <p class="form-hint">Each group will be a team of 4 players.</p>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Create Event</button>
+        <a href="/" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}

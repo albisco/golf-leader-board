@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Score Entry - Golf Leader Board{% endblock %}
+
+{% block extra_head %}
+<style>
+    .scorecard {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+    }
+    
+    .scorecard th,
+    .scorecard td {
+        padding: 0.75rem;
+        text-align: center;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .scorecard th {
+        background: #f9fafb;
+        font-weight: 600;
+    }
+    
+    .scorecard .hole-num {
+        background: #e5e7eb;
+        font-weight: bold;
+    }
+    
+    .scorecard .par-row td {
+        background: #f3f4f6;
+        font-size: 0.875rem;
+    }
+    
+    .scorecard input[type="number"] {
+        width: 50px;
+        text-align: center;
+        padding: 0.5rem;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+    
+    .scorecard input[type="number"]:focus {
+        outline: none;
+        border-color: #059669;
+        box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2);
+    }
+    
+    .scorecard .score-cell {
+        background: #fefce8;
+    }
+    
+    .scorecard .score-cell input {
+        background: white;
+    }
+    
+    .scorecard tr:nth-child(even) {
+        background: #f9fafb;
+    }
+    
+    .hole-section {
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .hole-navigation {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    
+    .current-hole {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #059669;
+    }
+    
+    .score-summary {
+        display: flex;
+        gap: 2rem;
+        padding: 1rem;
+        background: #f0fdf4;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+    
+    .score-summary-item {
+        text-align: center;
+    }
+    
+    .score-summary-item .label {
+        font-size: 0.75rem;
+        color: #6b7280;
+        text-transform: uppercase;
+    }
+    
+    .score-summary-item .value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #059669;
+    }
+    
+    .team-members {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.5rem;
+        padding: 1rem;
+        background: #f9fafb;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+    
+    .team-member {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .team-member .name {
+        font-weight: 500;
+    }
+    
+    .team-member .scorer-badge {
+        font-size: 0.625rem;
+        background: #059669;
+        color: white;
+        padding: 0.125rem 0.375rem;
+        border-radius: 999px;
+    }
+    
+    .edit-indicator {
+        font-size: 0.625rem;
+        color: #6b7280;
+    }
+    
+    .completion-bar {
+        height: 8px;
+        background: #e5e7eb;
+        border-radius: 4px;
+        overflow: hidden;
+        margin: 1rem 0;
+    }
+    
+    .completion-bar-fill {
+        height: 100%;
+        background: #059669;
+        transition: width 0.3s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ event.name }} — Score Entry</h1>
+    <p class="breadcrumb"><a href="/">Home</a> / Score Entry</p>
+</div>
+
+<div class="score-entry-container">
+    <div class="event-info">
+        <p><strong>Group:</strong> {{ group.name }} | <strong>Handicap:</strong> {{ group.group_handicap }}</p>
+    </div>
+    
+    {% if event.status != 'active' %}
+    <div class="alert alert-warning">
+        This event is currently {{ event.status }}. Score entry is {% if event.status == 'draft' %}not available yet{% else %}closed{% endif %}.
+    </div>
+    {% endif %}
+    
+    <div class="score-summary">
+        <div class="score-summary-item">
+            <div class="label">Holes Completed</div>
+            <div class="value">{{ holes_played }} / {{ event.hole_count }}</div>
+        </div>
+        <div class="score-summary-item">
+            <div class="label">Gross Total</div>
+            <div class="value">{{ gross_total }}</div>
+        </div>
+        <div class="score-summary-item">
+            <div class="label">Net Total</div>
+            <div class="value">{% if net_total is not none %}{{ net_total }}{% else %}--{% endif %}</div>
+        </div>
+    </div>
+    
+    <div class="completion-bar">
+        <div class="completion-bar-fill" style="width: {{ (holes_played / event.hole_count * 100)|round|int }}%"></div>
+    </div>
+    
+    <div class="team-members">
+        {% for player in group.players %}
+        <div class="team-member">
+            <span class="name">{{ player.name }}</span>
+            {% if player.is_scorer %}<span class="scorer-badge">Scorer</span>{% endif %}
+            <span class="handicap">(hcp {{ player.handicap }})</span>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <form hx-post="/scores" hx-swap="afterbegin" id="score-form">
+        <input type="hidden" name="group_id" value="{{ group.id }}">
+        
+        <table class="scorecard">
+            <thead>
+                <tr>
+                    <th>Hole</th>
+                    {% for h in range(1, event.hole_count + 1) %}
+                    <th>{{ h }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="par-row">
+                    <td>Par</td>
+                    {% for hole in holes %}
+                    <td>{{ hole.par }}</td>
+                    {% endfor %}
+                </tr>
+                <tr class="score-row">
+                    <td>Score</td>
+                    {% for hole in holes %}
+                    {% set score = scores_by_hole.get(hole.hole_number) %}
+                    <td class="{% if score %}score-cell{% endif %}">
+                        {% if event.status == 'active' %}
+                        <input type="number" 
+                               name="hole_{{ hole.id }}" 
+                               value="{{ score.gross_score if score else '' }}"
+                               min="1" 
+                               max="15"
+                               placeholder="-"
+                               hx-post="/scores"
+                               hx-vals='{"group_id": {{ group.id }}, "hole_id": {{ hole.id }}}'
+                               hx-swap="afterbegin">
+                        {% else %}
+                        <span>{{ score.gross_score if score else '-' }}</span>
+                        {% endif %}
+                        {% if score and score.edit_count > 0 %}
+                        <div class="edit-indicator">edit {{ score.edit_count }}</div>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="form-actions">
+            <a href="/leaderboard/{{ event.id }}" class="btn btn-secondary" target="_blank">View Leaderboard</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.successful && evt.detail.target === document.querySelector('input[name="hole_1"]')?.closest('td')) {
+            location.reload();
+        }
+    });
+    
+    setInterval(() => {
+        location.reload();
+    }, 30000);
+</script>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Golf Leader Board - Home{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>Golf Day Event Hub</h1>
+    <p class="tagline">Live leaderboards, real-time scoring, and group chat for your golf day.</p>
+</div>
+
+<div class="action-cards">
+    <div class="card">
+        <div class="card-icon">🏆</div>
+        <h2>Create Event</h2>
+        <p>Set up a new golf day for your group or organization.</p>
+        <a href="/create-event" class="btn btn-primary">Create Event</a>
+    </div>
+    
+    <div class="card">
+        <div class="card-icon">🎯</div>
+        <h2>Join Event</h2>
+        <p>Enter your group code to access scoring and leaderboard.</p>
+        <form hx-post="/events/join" hx-swap="outerHTML" class="join-form">
+            <input type="text" name="join_code" placeholder="Enter group code" required class="input">
+            <button type="submit" class="btn btn-secondary">Join</button>
+        </form>
+    </div>
+</div>
+
+<div class="features">
+    <h2>How It Works</h2>
+    <div class="feature-list">
+        <div class="feature-item">
+            <span class="feature-number">1</span>
+            <h3>Organizer creates event</h3>
+            <p>Set up event details, add groups, and assign scorers.</p>
+        </div>
+        <div class="feature-item">
+            <span class="feature-number">2</span>
+            <h3>Groups scan QR codes</h3>
+            <p>Each group gets a unique QR code for score entry.</p>
+        </div>
+        <div class="feature-item">
+            <span class="feature-number">3</span>
+            <h3>Live leaderboard updates</h3>
+            <p>Scores sync in real-time to the shared leaderboard.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

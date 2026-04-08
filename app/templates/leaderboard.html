@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}Leaderboard - {{ event.name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .leaderboard-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    
+    .leaderboard-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .leaderboard-header h1 {
+        font-size: 2rem;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+    }
+    
+    .event-meta {
+        color: #6b7280;
+        font-size: 0.875rem;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .status-draft {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .status-active {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .status-closed {
+        background: #e5e7eb;
+        color: #374151;
+    }
+    
+    .leaderboard-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+    
+    .leaderboard-table th,
+    .leaderboard-table td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .leaderboard-table th {
+        background: #f9fafb;
+        font-weight: 600;
+        color: #374151;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .leaderboard-table tbody tr {
+        transition: all 0.2s ease;
+    }
+    
+    .leaderboard-table tbody tr:hover {
+        background: #f9fafb;
+    }
+    
+    .leaderboard-table tbody tr.rank-change {
+        animation: highlight 0.5s ease;
+    }
+    
+    @keyframes highlight {
+        0% { background: #d1fae5; }
+        100% { background: transparent; }
+    }
+    
+    .rank-cell {
+        font-weight: bold;
+        font-size: 1.25rem;
+        color: #1f2937;
+        width: 60px;
+    }
+    
+    .rank-1 { color: #d97706; }
+    .rank-2 { color: #6b7280; }
+    .rank-3 { color: #b45309; }
+    
+    .group-cell {
+        font-weight: 500;
+    }
+    
+    .players-cell {
+        font-size: 0.875rem;
+        color: #6b7280;
+    }
+    
+    .score-cell {
+        font-family: monospace;
+        font-size: 1.125rem;
+    }
+    
+    .gross-score {
+        color: #1f2937;
+    }
+    
+    .net-score {
+        font-weight: bold;
+        color: #059669;
+    }
+    
+    .incomplete-badge {
+        font-size: 0.75rem;
+        color: #6b7280;
+        background: #f3f4f6;
+        padding: 0.125rem 0.5rem;
+        border-radius: 4px;
+        margin-left: 0.5rem;
+    }
+    
+    .live-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        color: #059669;
+        font-size: 0.875rem;
+    }
+    
+    .live-dot {
+        width: 8px;
+        height: 8px;
+        background: #059669;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    .last-updated {
+        text-align: center;
+        color: #6b7280;
+        font-size: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    
+    .final-results .rank-cell {
+        color: #059669;
+    }
+    
+    .final-results .net-score {
+        font-size: 1.25rem;
+    }
+    
+    .tie-handler {
+        font-size: 0.75rem;
+        color: #6b7280;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="leaderboard-container">
+    <div class="leaderboard-header">
+        <h1>{{ event.name }}</h1>
+        <div class="event-meta">
+            <span class="status-badge status-{{ event.status }}">{{ event.status }}</span>
+            {% if event.status == 'active' %}
+            <span class="live-indicator">
+                <span class="live-dot"></span>
+                Live
+            </span>
+            {% endif %}
+        </div>
+        <p>{{ event.date }}</p>
+    </div>
+    
+    <div id="leaderboard-content" hx-get="/leaderboard/{{ event.id }}" hx-trigger="load, ws-message" hx-swap="innerHTML">
+        <div class="loading">Loading leaderboard...</div>
+    </div>
+    
+    <div class="last-updated" id="last-updated"></div>
+</div>
+
+<div class="chat-section" style="max-width: 900px; margin: 2rem auto;">
+    {% include 'chat.html' %}
+</div>
+
+<script>
+    let ws = null;
+    
+    function initWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/{{ event.id }}`;
+        
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = function() {
+            console.log('WebSocket connected');
+            updateLastUpdated('Connected');
+        };
+        
+        ws.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'chat') {
+                    addChatMessage(data.message);
+                } else {
+                    updateLeaderboard(data);
+                }
+            } catch (e) {
+                console.error('Failed to parse WS message:', e);
+            }
+        };
+        
+        ws.onclose = function() {
+            console.log('WebSocket disconnected');
+            scheduleReconnect();
+        };
+        
+        ws.onerror = function(error) {
+            console.error('WebSocket error:', error);
+        };
+    }
+    
+    function scheduleReconnect() {
+        const delays = [1000, 2000, 4000, 8000, 16000, 30000];
+        const delay = delays[Math.min(reconnectAttempts, delays.length - 1)];
+        reconnectAttempts++;
+        setTimeout(initWebSocket, delay);
+    }
+    
+    let reconnectAttempts = 0;
+    
+    function updateLeaderboard(data) {
+        const container = document.getElementById('leaderboard-content');
+        
+        if (!data.leaderboard) {
+            container.innerHTML = '<div class="error">No data available</div>';
+            return;
+        }
+        
+        const isFinal = data.is_final;
+        const statusClass = isFinal ? 'final-results' : '';
+        
+        let html = `
+            <table class="leaderboard-table ${statusClass}">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Group</th>
+                        <th>Players</th>
+                        ${isFinal ? '<th>Net</th>' : '<th>Gross</th>'}
+                        ${isFinal ? '' : '<th>Holes</th>'}
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        data.leaderboard.forEach(entry => {
+            const grossDisplay = isFinal ? '' : `<span class="gross-score">${entry.gross_total}</span>`;
+            const holesDisplay = entry.holes_played === {{ event.hole_count }} ? '' : `<span class="incomplete-badge">${entry.holes_played} holes</span>`;
+            const netDisplay = isFinal && entry.net_total !== null ? `<span class="net-score">${entry.net_total}</span>` : '-';
+            
+            html += `
+                <tr>
+                    <td class="rank-cell rank-${entry.rank}">${entry.rank}</td>
+                    <td class="group-cell">${entry.group_name}</td>
+                    <td class="players-cell">${entry.players.map(p => p.name).join(', ')}</td>
+                    ${isFinal ? `<td class="score-cell">${netDisplay}</td>` : `<td class="score-cell">${grossDisplay} ${holesDisplay}</td>`}
+                    ${isFinal ? '' : `<td class="score-cell">${entry.holes_played}/{{ event.hole_count }}</td>`}
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        
+        container.innerHTML = html;
+        updateLastUpdated(new Date().toLocaleTimeString());
+    }
+    
+    function updateLastUpdated(time) {
+        document.getElementById('last-updated').textContent = `Last updated: ${time}`;
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        initWebSocket();
+        
+        document.body.addEventListener('ws-message', function(e) {
+            updateLeaderboard(e.detail);
+        });
+    });
+</script>
+{% endblock %}

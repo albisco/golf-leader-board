@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Golf Leader Board{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.addEventListener('htmx:configRequest', function(evt) {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]');
+                if (csrfToken) {
+                    evt.detail.headers['X-CSRF-Token'] = csrfToken.content;
+                }
+            });
+        });
+
+        const WS_RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
+        let wsReconnectAttempt = 0;
+        let ws = null;
+        let currentEventId = null;
+
+        function connectWebSocket(eventId, onMessage) {
+            currentEventId = eventId;
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/${eventId}`;
+            
+            try {
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = function() {
+                    console.log('WebSocket connected');
+                    wsReconnectAttempt = 0;
+                };
+                
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        onMessage(data);
+                    } catch (e) {
+                        console.error('Failed to parse WS message:', e);
+                    }
+                };
+                
+                ws.onclose = function() {
+                    console.log('WebSocket disconnected');
+                    scheduleReconnect(eventId, onMessage);
+                };
+                
+                ws.onerror = function(error) {
+                    console.error('WebSocket error:', error);
+                };
+            } catch (e) {
+                console.error('Failed to create WebSocket:', e);
+                scheduleReconnect(eventId, onMessage);
+            }
+        }
+
+        function scheduleReconnect(eventId, onMessage) {
+            const delay = WS_RECONNECT_DELAYS[Math.min(wsReconnectAttempt, WS_RECONNECT_DELAYS.length - 1)];
+            wsReconnectAttempt++;
+            console.log(`Reconnecting in ${delay}ms (attempt ${wsReconnectAttempt})`);
+            setTimeout(() => connectWebSocket(eventId, onMessage), delay);
+        }
+
+        function disconnectWebSocket() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function updateLocalStorage(key, value) {
+            try {
+                localStorage.setItem(key, JSON.stringify(value));
+            } catch (e) {
+                console.warn('localStorage unavailable:', e);
+            }
+        }
+
+        function getFromLocalStorage(key) {
+            try {
+                return JSON.parse(localStorage.getItem(key));
+            } catch (e) {
+                return null;
+            }
+        }
+    </script>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <header class="site-header">
+        <div class="container">
+            <a href="/" class="logo">Golf Leader Board</a>
+            <nav class="main-nav">
+                {% if request.session.get('organizer_id') %}
+                <a href="/events">My Events</a>
+                <a href="/logout">Logout</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <p>&copy; 2026 Golf Leader Board. 4-Ball Ambrose Scoring.</p>
+        </div>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
