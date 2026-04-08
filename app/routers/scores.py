@@ -102,39 +102,6 @@ async def get_leaderboard_endpoint(
     return await get_leaderboard(db, event_id)
 
 
-@router.get("/score/{scorer_token}")
-async def get_scorer_view(
-    scorer_token: str,
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(
-        select(Group).where(Group.qr_token == scorer_token)
-    )
-    group = result.scalar_one_or_none()
-    
-    if group is None:
-        raise HTTPException(status_code=404, detail="Invalid scorer token")
-    
-    result = await db.execute(
-        select(Event).where(Event.id == group.event_id)
-    )
-    event = result.scalar_one_or_none()
-    
-    return {
-        "event": {
-            "id": event.id,
-            "name": event.name,
-            "date": event.date.isoformat(),
-            "hole_count": event.hole_count,
-            "status": event.status.value,
-        },
-        "group": {
-            "id": group.id,
-            "name": group.name,
-            "group_handicap": group.group_handicap,
-        },
-    }
-
 
 @router.websocket("/ws/{event_id}")
 async def websocket_endpoint(
