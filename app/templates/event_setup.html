@@ -129,7 +129,7 @@
 <div class="event-status">
     <span class="status-badge status-{{ event.status }}">{{ event.status }}</span>
     {% if event.status == 'draft' %}
-    <form hx-post="/events/{{ event.id }}/start" hx-swap="outerHTML" style="display: inline;">
+    <form hx-post="/events/{{ event.id }}/start" hx-swap="none" hx-on::after-request="if(event.detail.successful) location.reload()" style="display: inline;">
         <button type="submit" class="btn btn-success">Start Event</button>
     </form>
     {% endif %}
@@ -143,21 +143,21 @@
 </div>
 
 <div id="holes-tab" class="tab-content active">
-    <form hx-put="/events/{{ event.id }}/holes" hx-swap="afterbegin">
+    <form id="holes-form">
         <div class="form-section">
             <h2>Course Setup</h2>
             <p class="form-hint">Adjust pars for each hole. Default is par 4.</p>
-            
+
             <div class="holes-grid">
                 {% for hole in holes %}
                 <div class="hole-input">
                     <label>Hole {{ loop.index }}</label>
-                    <input type="number" name="hole_{{ hole.id }}" value="{{ hole.par }}" min="3" max="7" class="input input-small">
+                    <input type="number" data-hole-id="{{ hole.id }}" value="{{ hole.par }}" min="3" max="7" class="input input-small">
                 </div>
                 {% endfor %}
             </div>
         </div>
-        
+
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">Save Hole Pars</button>
         </div>
@@ -199,11 +199,7 @@
         </div>
         {% endfor %}
         
-        <form hx-post="/events/{{ event.id }}/groups" hx-swap="afterbegin" hx-on::after-request="location.reload()">
-            <input type="hidden" name="name" value="Group {{ groups|length + 1 }}">
-            <input type="hidden" name="group_handicap" value="0">
-            <button type="submit" class="btn btn-secondary">+ Add Group</button>
-        </form>
+        <button type="button" class="btn btn-secondary" onclick="addGroup()">+ Add Group</button>
     </div>
 </div>
 
@@ -285,7 +281,7 @@
             idx++;
         }
         
-        const response = await fetch(`/events/${groupId}/group`, {
+        const response = await fetch(`/events/{{ event.id }}/groups/${groupId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ group_handicap: parseInt(handicap), players })
@@ -311,6 +307,38 @@
     
     // Generate QR codes (would need QR library in production)
     // For now showing placeholder
+    document.getElementById('holes-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const holes = Array.from(document.querySelectorAll('[data-hole-id]')).map(input => ({
+            id: parseInt(input.dataset.holeId),
+            par: parseInt(input.value),
+        }));
+        const res = await fetch('/events/{{ event.id }}/holes', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ holes }),
+        });
+        if (res.ok) {
+            alert('Hole pars saved!');
+        } else {
+            alert('Failed to save hole pars');
+        }
+    });
+
+    async function addGroup() {
+        const groupNum = document.querySelectorAll('.group-card').length + 1;
+        const res = await fetch('/events/{{ event.id }}/groups', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: `Group ${groupNum}`, group_handicap: 0, players: [] }),
+        });
+        if (res.ok) {
+            location.reload();
+        } else {
+            alert('Failed to add group');
+        }
+    }
+
     document.querySelectorAll('.qr-code-section').forEach(el => {
         const token = el.dataset.qrToken;
         const div = el.querySelector('div');

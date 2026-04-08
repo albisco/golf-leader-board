@@ -25,6 +25,15 @@ class CreateGroupRequest(BaseModel):
     players: list[dict] = Field(default_factory=list)
 
 
+class UpdateHolesRequest(BaseModel):
+    holes: list[dict]  # [{id: int, par: int}]
+
+
+class UpdateGroupRequest(BaseModel):
+    group_handicap: int = 0
+    players: list[dict] = Field(default_factory=list)
+
+
 class GroupResponse(BaseModel):
     id: int
     name: str
@@ -193,3 +202,73 @@ async def get_event(
         "status": event.status.value,
         "join_code": event.join_code,
     }
+
+
+@router.put("/{event_id}/holes")
+async def update_holes(
+    event_id: int,
+    request: UpdateHolesRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    for hole_data in request.holes:
+        result = await db.execute(
+            select(Hole).where(Hole.id == hole_data["id"], Hole.event_id == event_id)
+        )
+        hole = result.scalar_one_or_none()
+        if hole:
+            hole.par = hole_data["par"]
+    await db.commit()
+    return {"message": "Holes updated"}
+
+
+@router.put("/{event_id}/groups/{group_id}")
+async def update_group(
+    event_id: int,
+    group_id: int,
+    request: UpdateGroupRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Group).where(Group.id == group_id, Group.event_id == event_id)
+    )
+    group = result.scalar_one_or_none()
+    if group is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    group.group_handicap = request.group_handicap
+
+    # Replace players
+    result = await db.execute(select(Player).where(Player.group_id == group_id))
+    existing = result.scalars().all()
+    for p in existing:
+        await db.delete(p)
+    await db.flush()
+
+    for idx, pd in enumerate(request.players):
+        player = Player(
+            group_id=group_id,
+            name=pd.get("name", ""),
+            handicap=pd.get("handicap", 0),
+            is_scorer=pd.get("is_scorer", idx == 0),
+        )
+        db.add(player)
+
+    await db.commit()
+    return {"message": "Group updated"}
+
+
+@router.delete("/{event_id}/groups/{group_id}")
+async def delete_group(
+    event_id: int,
+    group_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Group).where(Group.id == group_id, Group.event_id == event_id)
+    )
+    group = result.scalar_one_or_none()
+    if group is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+    await db.delete(group)
+    await db.commit()
+    return {"message": "Group deleted"}
