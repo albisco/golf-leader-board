@@ -60,7 +60,9 @@ async def event_setup_page(event_id: int, request: Request, db: AsyncSession = D
 
 @router.get("/score/{scorer_token}", response_class=HTMLResponse)
 async def score_entry_page(scorer_token: str, request: Request, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Group).where(Group.qr_token == scorer_token))
+    result = await db.execute(
+        select(Group).options(selectinload(Group.players)).where(Group.qr_token == scorer_token)
+    )
     group = result.scalar_one_or_none()
     if group is None:
         raise HTTPException(status_code=404, detail="Invalid scorer token")
