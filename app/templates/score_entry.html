@@ -200,9 +200,7 @@
         {% endfor %}
     </div>
     
-    <form hx-post="/scores" hx-swap="afterbegin" id="score-form">
-        <input type="hidden" name="group_id" value="{{ group.id }}">
-        
+    <div id="score-form">
         <table class="scorecard">
             <thead>
                 <tr>
@@ -225,15 +223,14 @@
                     {% set score = scores_by_hole.get(hole.hole_number) %}
                     <td class="{% if score %}score-cell{% endif %}">
                         {% if event.status == 'active' %}
-                        <input type="number" 
-                               name="hole_{{ hole.id }}" 
+                        <input type="number"
+                               data-group-id="{{ group.id }}"
+                               data-hole-id="{{ hole.id }}"
                                value="{{ score.gross_score if score else '' }}"
-                               min="1" 
+                               min="1"
                                max="15"
                                placeholder="-"
-                               hx-post="/scores"
-                               hx-vals='{"group_id": {{ group.id }}, "hole_id": {{ hole.id }}}'
-                               hx-swap="afterbegin">
+                               class="score-input">
                         {% else %}
                         <span>{{ score.gross_score if score else '-' }}</span>
                         {% endif %}
@@ -245,22 +242,42 @@
                 </tr>
             </tbody>
         </table>
-        
+
         <div class="form-actions">
             <a href="/leaderboard/{{ event.id }}" class="btn btn-secondary" target="_blank">View Leaderboard</a>
         </div>
-    </form>
+    </div>
 </div>
 
 <script>
-    document.body.addEventListener('htmx:afterRequest', function(evt) {
-        if (evt.detail.successful && evt.detail.target === document.querySelector('input[name="hole_1"]')?.closest('td')) {
-            location.reload();
-        }
+    document.querySelectorAll('.score-input').forEach(input => {
+        input.addEventListener('change', async function() {
+            const grossScore = parseInt(this.value);
+            if (!grossScore || grossScore < 1) return;
+
+            const groupId = parseInt(this.dataset.groupId);
+            const holeId = parseInt(this.dataset.holeId);
+
+            try {
+                const res = await fetch('/scores', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ group_id: groupId, hole_id: holeId, gross_score: grossScore }),
+                });
+                if (res.ok) {
+                    this.closest('td').classList.add('score-cell');
+                    location.reload();
+                } else {
+                    const err = await res.json();
+                    alert('Error: ' + (err.detail || 'Failed to save score'));
+                }
+            } catch (e) {
+                console.error('Score submission failed:', e);
+            }
+        });
     });
-    
-    setInterval(() => {
-        location.reload();
-    }, 30000);
+
+    // Auto-refresh every 30s to show scores from teammates
+    setInterval(() => location.reload(), 30000);
 </script>
 {% endblock %}
