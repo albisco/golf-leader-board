@@ -13,12 +13,12 @@ router = APIRouter(tags=["pages"])
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 
 @router.get("/create-event", response_class=HTMLResponse)
 async def create_event_page(request: Request):
-    return templates.TemplateResponse("create_event.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="create_event.html")
 
 
 @router.get("/event/{event_id}/setup", response_class=HTMLResponse)
@@ -36,8 +36,7 @@ async def event_setup_page(event_id: int, request: Request, db: AsyncSession = D
     result = await db.execute(select(Hole).where(Hole.event_id == event_id))
     holes = result.scalars().all()
 
-    return templates.TemplateResponse("event_setup.html", {
-        "request": request,
+    return templates.TemplateResponse(request=request, name="event_setup.html", context={
         "event": {
             "id": event.id,
             "name": event.name,
@@ -86,8 +85,7 @@ async def score_entry_page(scorer_token: str, request: Request, db: AsyncSession
     gross_total = sum(s.gross_score for s in scores)
     net_total = gross_total - group.group_handicap if holes_played == event.hole_count else None
 
-    return templates.TemplateResponse("score_entry.html", {
-        "request": request,
+    return templates.TemplateResponse(request=request, name="score_entry.html", context={
         "event": {
             "id": event.id,
             "name": event.name,
@@ -119,8 +117,7 @@ async def leaderboard_page(event_id: int, request: Request, db: AsyncSession = D
     from app.services.leaderboard import get_leaderboard
     leaderboard_data = await get_leaderboard(db, event_id)
 
-    return templates.TemplateResponse("leaderboard.html", {
-        "request": request,
+    return templates.TemplateResponse(request=request, name="leaderboard.html", context={
         "event": {
             "id": event.id,
             "name": event.name,
@@ -135,7 +132,7 @@ async def leaderboard_page(event_id: int, request: Request, db: AsyncSession = D
 
 @router.get("/events/join", response_class=HTMLResponse)
 async def join_event_page(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 
 @router.post("/events/join", response_class=HTMLResponse)
@@ -149,7 +146,6 @@ async def join_event(request: Request, db: AsyncSession = Depends(get_db)):
     if group:
         return RedirectResponse(url=f"/score/{join_code}", status_code=303)
 
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request=request, name="index.html", context={
         "error": "Invalid join code",
     })
