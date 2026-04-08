@@ -20,10 +20,11 @@
         <div class="card-icon">🎯</div>
         <h2>Join Event</h2>
         <p>Enter your group code to access scoring and leaderboard.</p>
-        <form hx-post="/events/join" hx-swap="outerHTML" class="join-form">
+        <form method="post" action="/events/join" class="join-form">
             <input type="text" name="join_code" placeholder="Enter group code" required class="input">
             <button type="submit" class="btn btn-secondary">Join</button>
         </form>
+        {% if error %}<p class="form-error" style="color:#ef4444;margin-top:0.5rem;">{{ error }}</p>{% endif %}
     </div>
 </div>
 
