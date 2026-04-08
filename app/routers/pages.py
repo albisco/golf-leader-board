@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.tables import Event, Group, Hole, Score
+from app.tables import ChatMessage, Event, Group, Hole, Score
 from app.templates import templates
 
 router = APIRouter(tags=["pages"])
@@ -119,6 +119,14 @@ async def leaderboard_page(event_id: int, request: Request, db: AsyncSession = D
     from app.services.leaderboard import get_leaderboard
     leaderboard_data = await get_leaderboard(db, event_id)
 
+    chat_result = await db.execute(
+        select(ChatMessage)
+        .where(ChatMessage.event_id == event_id)
+        .order_by(ChatMessage.created_at.asc())
+        .limit(50)
+    )
+    messages = chat_result.scalars().all()
+
     return templates.TemplateResponse(request=request, name="leaderboard.html", context={
         "event": {
             "id": event.id,
@@ -129,6 +137,10 @@ async def leaderboard_page(event_id: int, request: Request, db: AsyncSession = D
         },
         "leaderboard": leaderboard_data.get("leaderboard", []),
         "is_final": leaderboard_data.get("is_final", False),
+        "unread_count": 0,
+        "event_id": event.id,
+        "sender_name": "",
+        "messages": messages,
     })
 
 
