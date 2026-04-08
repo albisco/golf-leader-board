@@ -214,10 +214,11 @@
         
         <div class="qr-codes-grid">
             {% for group in groups %}
-            <div class="qr-code-section">
+            <div class="qr-code-section" data-qr-token="{{ group.qr_token }}">
                 <h3>{{ group.name }}</h3>
                 <div id="qr-{{ group.id }}"></div>
                 <p class="form-hint">Handicap: {{ group.group_handicap }}</p>
+                <p class="form-hint">Score link: <a href="/score/{{ group.qr_token }}" target="_blank">/score/{{ group.qr_token }}</a></p>
             </div>
             {% endfor %}
         </div>
@@ -311,8 +312,11 @@
     // Generate QR codes (would need QR library in production)
     // For now showing placeholder
     document.querySelectorAll('.qr-code-section').forEach(el => {
-        const groupId = el.id.replace('qr-', '');
-        el.querySelector('div').innerHTML = '<p style="padding: 20px; background: #e5e7eb;">QR Code: /score/{{ group.qr_token }}</p>';
+        const token = el.dataset.qrToken;
+        const div = el.querySelector('div');
+        if (div && token) {
+            div.innerHTML = `<p style="padding: 20px; background: #e5e7eb;">QR Code: /score/${token}</p>`;
+        }
     });
 </script>
 {% endblock %}
