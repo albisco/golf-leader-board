@@ -94,8 +94,8 @@ async def submit_score(
     )
 
 
-@router.get("/leaderboard/{event_id}")
-async def get_leaderboard_endpoint(
+@router.get("/api/leaderboard/{event_id}")
+async def get_leaderboard_api(
     event_id: int,
     db: AsyncSession = Depends(get_db),
 ):
