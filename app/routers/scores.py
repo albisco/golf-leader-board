@@ -65,6 +65,8 @@ async def submit_score(
         existing_score.edit_count += 1
         await db.commit()
         await db.refresh(existing_score)
+        leaderboard_data = await get_leaderboard(db, event.id)
+        await ws_manager.broadcast(event.id, leaderboard_data)
         return ScoreResponse(
             id=existing_score.id,
             group_id=existing_score.group_id,
