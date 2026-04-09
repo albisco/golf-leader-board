@@ -113,14 +113,29 @@ async def test_create_group(db):
 
 
 @pytest.mark.asyncio
+async def test_create_group_with_no_players(db):
+    """POST /events/{id}/groups with empty players creates group shell (UI adds players later)."""
+    from app.routers.events import create_event, create_group, CreateEventRequest, CreateGroupRequest
+
+    request = CreateEventRequest(name="Test Event", date=date(2026, 4, 15))
+    event_response = await create_event(request, db)
+
+    group_request = CreateGroupRequest(name="Group 1", group_handicap=0, players=[])
+    response = await create_group(event_response.id, group_request, db)
+
+    assert response.name == "Group 1"
+    assert response.qr_token is not None
+
+
+@pytest.mark.asyncio
 async def test_get_event(db):
     """GET /events/{id} returns event details."""
     from app.routers.events import create_event, get_event, CreateEventRequest
-    
+
     request = CreateEventRequest(name="Test Event", date=date(2026, 4, 15))
     event_response = await create_event(request, db)
-    
+
     response = await get_event(event_response.id, db)
-    
+
     assert response["name"] == "Test Event"
     assert response["status"] == "draft"

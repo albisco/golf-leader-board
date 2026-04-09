@@ -32,14 +32,6 @@ class CreateGroupRequest(BaseModel):
             return []
         return v
 
-    def model_post_init(self, ctx: Any) -> None:
-        scorers = sum(1 for p in self.players if isinstance(p, dict) and p.get("is_scorer", False))
-        if len(self.players) < 2:
-            raise ValueError("Group must have at least 2 players")
-        if scorers != 1:
-            raise ValueError("Group must have exactly 1 scorer")
-
-
 class UpdateHolesRequest(BaseModel):
     holes: list[dict]  # [{id: int, par: int}]
 
