@@ -343,7 +343,11 @@
         const token = el.dataset.qrToken;
         const div = el.querySelector('div');
         if (div && token) {
-            div.innerHTML = `<p style="padding: 20px; background: #e5e7eb;">QR Code: /score/${token}</p>`;
+            const img = document.createElement('img');
+            img.src = `/api/qr/${token}`;
+            img.alt = `QR Code for ${el.querySelector('h3').textContent}`;
+            div.innerHTML = '';
+            div.appendChild(img);
         }
     });
 </script>
