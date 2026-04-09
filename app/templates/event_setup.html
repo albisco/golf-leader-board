@@ -464,11 +464,8 @@
         const token = el.dataset.qrToken;
         const div = el.querySelector('div');
         if (div && token) {
-            const img = document.createElement('img');
-            img.src = `/api/qr/${token}`;
-            img.alt = `QR Code for ${el.querySelector('h3').textContent}`;
-            div.innerHTML = '';
-            div.appendChild(img);
+            const fullUrl = window.location.origin + '/score/' + token;
+            div.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(fullUrl)}" alt="QR Code for ${token}" />`;
         }
     });
 </script>
