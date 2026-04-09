@@ -69,6 +69,8 @@ async def score_entry_page(scorer_token: str, request: Request, db: AsyncSession
 
     result = await db.execute(select(Event).where(Event.id == group.event_id))
     event = result.scalar_one_or_none()
+    if event is None:
+        raise HTTPException(status_code=404, detail="Event not found")
 
     result = await db.execute(select(Hole).where(Hole.event_id == event.id))
     holes = result.scalars().all()

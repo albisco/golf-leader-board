@@ -99,6 +99,10 @@ async def get_leaderboard_api(
     event_id: int,
     db: AsyncSession = Depends(get_db),
 ):
+    result = await db.execute(select(Event).where(Event.id == event_id))
+    event = result.scalar_one_or_none()
+    if event is None:
+        raise HTTPException(status_code=404, detail="Event not found")
     return await get_leaderboard(db, event_id)
 
 
