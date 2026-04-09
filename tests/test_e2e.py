@@ -1,9 +1,31 @@
 """End-to-end tests: full scorer flow, live broadcast, chat flow."""
 import pytest
 from datetime import date
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 from app.tables import Event, Group, Hole, Score, Player, EventStatus, ChatMessage
+
+
+def test_leaderboard_template_no_recursive_htmx():
+    """leaderboard.html must not have hx-get on #leaderboard-content.
+
+    Regression test: hx-get="/leaderboard/{id}" on that div fetches the full
+    page and injects it into itself, duplicating the chat section and WS script
+    on every server response (~10s loop).
+    """
+    template_path = Path(__file__).parent.parent / "app" / "templates" / "leaderboard.html"
+    html = template_path.read_text()
+
+    # The div must exist but must NOT carry hx-get
+    assert 'id="leaderboard-content"' in html, "#leaderboard-content div missing from template"
+    # Find the line with the div and assert no hx-get on it
+    for line in html.splitlines():
+        if 'id="leaderboard-content"' in line:
+            assert "hx-get" not in line, (
+                "#leaderboard-content has hx-get — this causes the full page to be injected "
+                "recursively, duplicating chat and WS script every ~10s"
+            )
 
 
 @pytest.mark.asyncio

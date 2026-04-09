@@ -194,7 +194,7 @@
         <p>{{ event.date }}</p>
     </div>
     
-    <div id="leaderboard-content" hx-get="/leaderboard/{{ event.id }}" hx-trigger="load, ws-message" hx-swap="innerHTML">
+    <div id="leaderboard-content">
         <div class="loading">Loading leaderboard...</div>
     </div>
     
@@ -216,6 +216,7 @@
         
         ws.onopen = function() {
             console.log('WebSocket connected');
+            reconnectAttempts = 0;
             updateLastUpdated('Connected');
         };
         
