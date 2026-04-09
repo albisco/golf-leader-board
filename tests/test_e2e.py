@@ -195,10 +195,10 @@ async def test_multiple_groups_leaderboard(db):
     await start_event(event.id, db)
     
     # Create two groups
-    group1_req = CreateGroupRequest(name="Group A", group_handicap=0, players=[{"name": "P1", "handicap": 10}])
+    group1_req = CreateGroupRequest(name="Group A", group_handicap=0, players=[{"name": "P1", "handicap": 10, "is_scorer": True}, {"name": "P1b", "handicap": 10}])
     group1 = await create_group(event.id, group1_req, db)
-    
-    group2_req = CreateGroupRequest(name="Group B", group_handicap=5, players=[{"name": "P2", "handicap": 15}])
+
+    group2_req = CreateGroupRequest(name="Group B", group_handicap=5, players=[{"name": "P2", "handicap": 15, "is_scorer": True}, {"name": "P2b", "handicap": 15}])
     group2 = await create_group(event.id, group2_req, db)
     
     from sqlalchemy import select
