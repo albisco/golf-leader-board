@@ -171,27 +171,40 @@
     const chatMessages = document.getElementById('chat-messages');
     const chatEmpty = document.getElementById('chat-empty');
     
+    let chatSubmitting = false;
+
     chatForm.addEventListener('submit', async function(e) {
         e.preventDefault();
-        
-        const formData = new FormData(chatForm);
-        const senderName = getSenderName();
-        formData.set('sender_name', senderName);
-        
+        if (chatSubmitting) return;
+
+        const contentInput = chatForm.querySelector('input[name="content"]');
+        const content = contentInput.value.trim();
+        if (!content) return;
+
+        chatSubmitting = true;
+        const submitBtn = chatForm.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+
+        // Clear input immediately so a second tap does nothing
+        contentInput.value = '';
+
         try {
-            const response = await fetch('/chat', {
+            await fetch('/chat', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(Object.fromEntries(formData))
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    event_id: parseInt(chatForm.querySelector('input[name="event_id"]').value),
+                    sender_name: getSenderName(),
+                    content,
+                }),
             });
-            
-            if (response.ok) {
-                chatForm.reset();
-            }
         } catch (err) {
             console.error('Failed to send message:', err);
+            // Restore input so the user can retry
+            contentInput.value = content;
+        } finally {
+            chatSubmitting = false;
+            submitBtn.disabled = false;
         }
     });
     
