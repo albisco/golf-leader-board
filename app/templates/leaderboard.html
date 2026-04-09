@@ -206,53 +206,6 @@
 </div>
 
 <script>
-    let ws = null;
-    
-    function initWebSocket() {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws/{{ event.id }}`;
-        
-        ws = new WebSocket(wsUrl);
-        
-        ws.onopen = function() {
-            console.log('WebSocket connected');
-            reconnectAttempts = 0;
-            updateLastUpdated('Connected');
-        };
-        
-        ws.onmessage = function(event) {
-            try {
-                const data = JSON.parse(event.data);
-                
-                if (data.type === 'chat') {
-                    addChatMessage(data.message);
-                } else {
-                    updateLeaderboard(data);
-                }
-            } catch (e) {
-                console.error('Failed to parse WS message:', e);
-            }
-        };
-        
-        ws.onclose = function() {
-            console.log('WebSocket disconnected');
-            scheduleReconnect();
-        };
-        
-        ws.onerror = function(error) {
-            console.error('WebSocket error:', error);
-        };
-    }
-    
-    function scheduleReconnect() {
-        const delays = [1000, 2000, 4000, 8000, 16000, 30000];
-        const delay = delays[Math.min(reconnectAttempts, delays.length - 1)];
-        reconnectAttempts++;
-        setTimeout(initWebSocket, delay);
-    }
-    
-    let reconnectAttempts = 0;
-    
     function updateLeaderboard(data) {
         const container = document.getElementById('leaderboard-content');
         
@@ -305,10 +258,12 @@
     }
     
     document.addEventListener('DOMContentLoaded', function() {
-        initWebSocket();
-        
-        document.body.addEventListener('ws-message', function(e) {
-            updateLeaderboard(e.detail);
+        connectWebSocket({{ event.id }}, function(data) {
+            if (data.type === 'chat') {
+                addChatMessage(data.message);
+            } else {
+                updateLeaderboard(data);
+            }
         });
     });
 </script>
