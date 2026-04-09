@@ -166,6 +166,24 @@ async def test_event_lifecycle(db):
 
 
 @pytest.mark.asyncio
+async def test_leaderboard_blocked_for_draft_event(db):
+    """GET /leaderboard/{id} returns 403 when event is still in draft status."""
+    from unittest.mock import MagicMock
+    from fastapi import HTTPException
+    from app.routers.pages import leaderboard_page
+    from app.routers.events import create_event, CreateEventRequest
+
+    event_req = CreateEventRequest(name="Draft Event", date=date(2026, 4, 15))
+    event = await create_event(event_req, db)
+    assert event.status == "draft"
+
+    with pytest.raises(HTTPException) as exc:
+        await leaderboard_page(event_id=event.id, request=MagicMock(), db=db)
+
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_multiple_groups_leaderboard(db):
     """Leaderboard sorts multiple groups correctly."""
     from app.routers.events import create_event, start_event, create_group, CreateEventRequest, CreateGroupRequest
