@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+import os
+import qrcode
+import io
 
 from app.database import AsyncSessionLocal, get_db
 from app.tables import Score, Event, Group, EventStatus
@@ -65,6 +69,8 @@ async def submit_score(
         existing_score.edit_count += 1
         await db.commit()
         await db.refresh(existing_score)
+        leaderboard_data = await get_leaderboard(db, event.id)
+        await ws_manager.broadcast(event.id, leaderboard_data)
         return ScoreResponse(
             id=existing_score.id,
             group_id=existing_score.group_id,
@@ -99,6 +105,10 @@ async def get_leaderboard_api(
     event_id: int,
     db: AsyncSession = Depends(get_db),
 ):
+    result = await db.execute(select(Event).where(Event.id == event_id))
+    event = result.scalar_one_or_none()
+    if event is None:
+        raise HTTPException(status_code=404, detail="Event not found")
     return await get_leaderboard(db, event_id)
 
 
@@ -118,3 +128,27 @@ async def websocket_endpoint(
             data = await websocket.receive_text()
     except WebSocketDisconnect:
         ws_manager.disconnect(event_id, websocket)
+
+
+@router.get("/api/qr/{qr_token}")
+async def get_qr_code(qr_token: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Group).where(Group.qr_token == qr_token)
+    )
+    group = result.scalar_one_or_none()
+    if group is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    base_url = os.getenv("BASE_URL", "")
+    score_url = f"{base_url}/score/{qr_token}" if base_url else f"/score/{qr_token}"
+    
+    qr = qrcode.QRCode(box_size=10, border=4)
+    qr.add_data(score_url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    
+    return Response(content=buf.getvalue(), media_type="image/png")

@@ -112,6 +112,49 @@ async def test_websocket_text_message():
     ws.send_text.assert_called_once_with("text message")
 
 
+def test_leaderboard_template_no_duplicate_ws_declaration():
+    """leaderboard.html must not redeclare 'let ws' — doing so causes a
+    SyntaxError in browsers that kills the entire script block, preventing
+    WebSocket connection and all live updates."""
+    import os
+    template_path = os.path.join(
+        os.path.dirname(__file__), '..', 'app', 'templates', 'leaderboard.html'
+    )
+    with open(template_path) as f:
+        content = f.read()
+    assert 'let ws' not in content, (
+        "leaderboard.html declares 'let ws' but base.html already declares it. "
+        "This causes a SyntaxError in browsers, killing all live updates. "
+        "Use connectWebSocket() from base.html instead."
+    )
+
+
+@pytest.mark.asyncio
+async def test_chat_post_broadcasts_to_ws(db):
+    """POST /chat broadcasts {type: 'chat', message: {...}} to all WS clients."""
+    from unittest.mock import AsyncMock, patch
+    from app.routers.chat import send_chat_message, ChatMessageRequest
+    from app.tables import Event, EventStatus
+
+    event = Event(name="Test", date=date(2026, 4, 15), join_code="chat123", status=EventStatus.active)
+    db.add(event)
+    await db.commit()
+    await db.refresh(event)
+
+    with patch('app.routers.chat.ws_manager') as mock_manager:
+        mock_manager.broadcast = AsyncMock()
+        request = ChatMessageRequest(event_id=event.id, sender_name="Alice", content="Hello!")
+        await send_chat_message(request, db)
+
+    mock_manager.broadcast.assert_called_once()
+    call_args = mock_manager.broadcast.call_args
+    assert call_args[0][0] == event.id
+    payload = call_args[0][1]
+    assert payload["type"] == "chat"
+    assert payload["message"]["sender_name"] == "Alice"
+    assert payload["message"]["content"] == "Hello!"
+
+
 @pytest.mark.asyncio
 async def test_scorer_token_view(db):
     """GET /score/{scorer_token} returns group and event info."""

@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.tables import ChatMessage, Event, Group, Hole, Score
+from app.tables import ChatMessage, Event, EventStatus, Group, Hole, Score
 from app.templates import templates
 
 router = APIRouter(tags=["pages"])
@@ -69,6 +69,8 @@ async def score_entry_page(scorer_token: str, request: Request, db: AsyncSession
 
     result = await db.execute(select(Event).where(Event.id == group.event_id))
     event = result.scalar_one_or_none()
+    if event is None:
+        raise HTTPException(status_code=404, detail="Event not found")
 
     result = await db.execute(select(Hole).where(Hole.event_id == event.id))
     holes = result.scalars().all()
@@ -115,6 +117,8 @@ async def leaderboard_page(event_id: int, request: Request, db: AsyncSession = D
     event = result.scalar_one_or_none()
     if event is None:
         raise HTTPException(status_code=404, detail="Event not found")
+    if event.status == EventStatus.draft:
+        raise HTTPException(status_code=403, detail="Leaderboard is not available until the event has started")
 
     from app.services.leaderboard import get_leaderboard
     leaderboard_data = await get_leaderboard(db, event_id)

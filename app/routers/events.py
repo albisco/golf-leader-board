@@ -1,8 +1,9 @@
 import secrets
 from datetime import date
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -24,6 +25,12 @@ class CreateGroupRequest(BaseModel):
     group_handicap: int = 0
     players: list[dict] = Field(default_factory=list)
 
+    @field_validator("players", mode="before")
+    @classmethod
+    def validate_players(cls, v: Any) -> list[dict]:
+        if not isinstance(v, list):
+            return []
+        return v
 
 class UpdateHolesRequest(BaseModel):
     holes: list[dict]  # [{id: int, par: int}]
@@ -32,6 +39,20 @@ class UpdateHolesRequest(BaseModel):
 class UpdateGroupRequest(BaseModel):
     group_handicap: int = 0
     players: list[dict] = Field(default_factory=list)
+
+    @field_validator("players", mode="before")
+    @classmethod
+    def validate_players(cls, v: Any) -> list[dict]:
+        if not isinstance(v, list):
+            return []
+        return v
+
+    def model_post_init(self, ctx: Any) -> None:
+        scorers = sum(1 for p in self.players if isinstance(p, dict) and p.get("is_scorer", False))
+        if len(self.players) < 2:
+            raise ValueError("Group must have at least 2 players")
+        if scorers != 1:
+            raise ValueError("Group must have exactly 1 scorer")
 
 
 class GroupResponse(BaseModel):

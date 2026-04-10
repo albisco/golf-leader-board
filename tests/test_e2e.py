@@ -1,9 +1,31 @@
 """End-to-end tests: full scorer flow, live broadcast, chat flow."""
 import pytest
 from datetime import date
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 from app.tables import Event, Group, Hole, Score, Player, EventStatus, ChatMessage
+
+
+def test_leaderboard_template_no_recursive_htmx():
+    """leaderboard.html must not have hx-get on #leaderboard-content.
+
+    Regression test: hx-get="/leaderboard/{id}" on that div fetches the full
+    page and injects it into itself, duplicating the chat section and WS script
+    on every server response (~10s loop).
+    """
+    template_path = Path(__file__).parent.parent / "app" / "templates" / "leaderboard.html"
+    html = template_path.read_text()
+
+    # The div must exist but must NOT carry hx-get
+    assert 'id="leaderboard-content"' in html, "#leaderboard-content div missing from template"
+    # Find the line with the div and assert no hx-get on it
+    for line in html.splitlines():
+        if 'id="leaderboard-content"' in line:
+            assert "hx-get" not in line, (
+                "#leaderboard-content has hx-get — this causes the full page to be injected "
+                "recursively, duplicating chat and WS script every ~10s"
+            )
 
 
 @pytest.mark.asyncio
@@ -144,6 +166,24 @@ async def test_event_lifecycle(db):
 
 
 @pytest.mark.asyncio
+async def test_leaderboard_blocked_for_draft_event(db):
+    """GET /leaderboard/{id} returns 403 when event is still in draft status."""
+    from unittest.mock import MagicMock
+    from fastapi import HTTPException
+    from app.routers.pages import leaderboard_page
+    from app.routers.events import create_event, CreateEventRequest
+
+    event_req = CreateEventRequest(name="Draft Event", date=date(2026, 4, 15))
+    event = await create_event(event_req, db)
+    assert event.status == "draft"
+
+    with pytest.raises(HTTPException) as exc:
+        await leaderboard_page(event_id=event.id, request=MagicMock(), db=db)
+
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_multiple_groups_leaderboard(db):
     """Leaderboard sorts multiple groups correctly."""
     from app.routers.events import create_event, start_event, create_group, CreateEventRequest, CreateGroupRequest
@@ -155,10 +195,10 @@ async def test_multiple_groups_leaderboard(db):
     await start_event(event.id, db)
     
     # Create two groups
-    group1_req = CreateGroupRequest(name="Group A", group_handicap=0, players=[{"name": "P1", "handicap": 10}])
+    group1_req = CreateGroupRequest(name="Group A", group_handicap=0, players=[{"name": "P1", "handicap": 10, "is_scorer": True}, {"name": "P1b", "handicap": 10}])
     group1 = await create_group(event.id, group1_req, db)
-    
-    group2_req = CreateGroupRequest(name="Group B", group_handicap=5, players=[{"name": "P2", "handicap": 15}])
+
+    group2_req = CreateGroupRequest(name="Group B", group_handicap=5, players=[{"name": "P2", "handicap": 15, "is_scorer": True}, {"name": "P2b", "handicap": 15}])
     group2 = await create_group(event.id, group2_req, db)
     
     from sqlalchemy import select
