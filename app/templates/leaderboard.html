@@ -194,7 +194,7 @@
         <p>{{ event.date }}</p>
     </div>
     
-    <div id="leaderboard-content" hx-get="/leaderboard/{{ event.id }}" hx-trigger="load" hx-swap="innerHTML">
+    <div id="leaderboard-content" hx-get="/api/leaderboard/{{ event.id }}" hx-trigger="load" hx-swap="innerHTML">
         <div class="loading">Loading leaderboard...</div>
     </div>
     
@@ -226,7 +226,55 @@
                 if (data.type === 'chat') {
                     addChatMessage(data.message);
                 } else {
-                    updateLeaderboard(data);
+                    const container = document.getElementById('leaderboard-content');
+                    if (!data.leaderboard) {
+                        container.innerHTML = '<div class="error">No data available</div>';
+                        return;
+                    }
+                    
+                    const isFinal = data.is_final;
+                    const statusClass = isFinal ? 'final-results' : '';
+                    
+                    let html = `
+                        <table class="leaderboard-table ${statusClass}">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Group</th>
+                                    <th>Players</th>
+                                    <th>Gross</th>
+                                    ${!isFinal ? '<th>Adj</th>' : ''}
+                                    ${isFinal ? '<th>Net</th>' : '<th>Holes</th>'}
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    data.leaderboard.forEach(entry => {
+                        const grossDisplay = isFinal ? '' : `<span class="gross-score">${entry.gross_total}</span>`;
+                        const adjDisplay = !isFinal && entry.holes_played > 0 
+                            ? `<span class="net-score">${entry.running_net}</span><span class="incomplete-badge" style="margin-left: 0.25rem; font-size: 0.625rem;">-${entry.running_handicap}</span>`
+                            : '';
+                        const holesDisplay = entry.holes_played === {{ event.hole_count }} ? '' : `<span class="incomplete-badge">${entry.holes_played} holes</span>`;
+                        const netDisplay = isFinal && entry.net_total !== null ? `<span class="net-score">${entry.net_total}</span>` : '-';
+                        
+                        html += `
+                            <tr>
+                                <td class="rank-cell rank-${entry.rank}">${entry.rank}</td>
+                                <td class="group-cell">${entry.group_name}</td>
+                                <td class="players-cell">${entry.players.map(p => p.name).join(', ')}</td>
+                                ${isFinal ? `<td class="score-cell">${grossDisplay}</td>` : `<td class="score-cell">${grossDisplay}</td>`}
+                                ${!isFinal ? `<td class="score-cell">${adjDisplay}</td>` : ''}
+                                ${isFinal ? `<td class="score-cell">${netDisplay}</td>` : `<td class="score-cell">${holesDisplay}</td>`}
+                                ${isFinal ? '' : `<td class="score-cell">${entry.holes_played}/{{ event.hole_count }}</td>`}
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table>';
+                    
+                    container.innerHTML = html;
+                    updateLastUpdated(new Date().toLocaleTimeString());
                 }
             } catch (e) {
                 console.error('Failed to parse WS message:', e);
@@ -311,10 +359,6 @@
     
     document.addEventListener('DOMContentLoaded', function() {
         initWebSocket();
-        
-        document.body.addEventListener('ws-message', function(e) {
-            updateLeaderboard(e.detail);
-        });
     });
 </script>
 {% endblock %}
