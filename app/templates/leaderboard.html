@@ -206,6 +206,10 @@
 </div>
 
 <script>
+    // ws, connectWebSocket(), scheduleReconnect(), disconnectWebSocket() are
+    // provided by base.html — do NOT redeclare ws or reconnect logic here.
+
+
     function updateLeaderboard(data) {
         const container = document.getElementById('leaderboard-content');
         
@@ -224,24 +228,29 @@
                         <th>Rank</th>
                         <th>Group</th>
                         <th>Players</th>
-                        ${isFinal ? '<th>Net</th>' : '<th>Gross</th>'}
+                        <th>Hcp</th>
+                        <th>Gross</th>
+                        <th>${isFinal ? 'Net' : 'Running Net'}</th>
                         ${isFinal ? '' : '<th>Holes</th>'}
                     </tr>
                 </thead>
                 <tbody>
         `;
-        
+
         data.leaderboard.forEach(entry => {
-            const grossDisplay = isFinal ? '' : `<span class="gross-score">${entry.gross_total}</span>`;
             const holesDisplay = entry.holes_played === {{ event.hole_count }} ? '' : `<span class="incomplete-badge">${entry.holes_played} holes</span>`;
-            const netDisplay = isFinal && entry.net_total !== null ? `<span class="net-score">${entry.net_total}</span>` : '-';
-            
+            const netDisplay = isFinal && entry.net_total !== null
+                ? `<span class="net-score">${entry.net_total}</span>`
+                : (entry.holes_played > 0 ? `<span class="net-score">${entry.running_net}</span>` : '-');
+
             html += `
                 <tr>
                     <td class="rank-cell rank-${entry.rank}">${entry.rank}</td>
                     <td class="group-cell">${entry.group_name}</td>
                     <td class="players-cell">${entry.players.map(p => p.name).join(', ')}</td>
-                    ${isFinal ? `<td class="score-cell">${netDisplay}</td>` : `<td class="score-cell">${grossDisplay} ${holesDisplay}</td>`}
+                    <td class="score-cell">${entry.group_handicap}</td>
+                    <td class="score-cell"><span class="gross-score">${entry.holes_played > 0 ? entry.gross_total : '-'}</span> ${!isFinal ? holesDisplay : ''}</td>
+                    <td class="score-cell">${netDisplay}</td>
                     ${isFinal ? '' : `<td class="score-cell">${entry.holes_played}/{{ event.hole_count }}</td>`}
                 </tr>
             `;
@@ -258,6 +267,7 @@
     }
     
     document.addEventListener('DOMContentLoaded', function() {
+        updateLastUpdated('Connecting...');
         connectWebSocket({{ event.id }}, function(data) {
             if (data.type === 'chat') {
                 addChatMessage(data.message);

@@ -1,10 +1,12 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.database import get_db
+from app.database import get_db, AsyncSessionLocal
 from app.tables import ChatMessage, Event, EventStatus, Group, Hole, Score
 from app.templates import templates
 
@@ -22,19 +24,25 @@ async def create_event_page(request: Request):
 
 
 @router.get("/event/{event_id}/setup", response_class=HTMLResponse)
-async def event_setup_page(event_id: int, request: Request, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Event).where(Event.id == event_id))
-    event = result.scalar_one_or_none()
+async def event_setup_page(event_id: int, request: Request):
+    async def fetch_event():
+        async with AsyncSessionLocal() as s:
+            return (await s.execute(select(Event).where(Event.id == event_id))).scalar_one_or_none()
+
+    async def fetch_groups():
+        async with AsyncSessionLocal() as s:
+            return (await s.execute(
+                select(Group).options(selectinload(Group.players)).where(Group.event_id == event_id)
+            )).scalars().all()
+
+    async def fetch_holes():
+        async with AsyncSessionLocal() as s:
+            return (await s.execute(select(Hole).where(Hole.event_id == event_id))).scalars().all()
+
+    event, groups, holes = await asyncio.gather(fetch_event(), fetch_groups(), fetch_holes())
+
     if event is None:
         raise HTTPException(status_code=404, detail="Event not found")
-
-    result = await db.execute(
-        select(Group).options(selectinload(Group.players)).where(Group.event_id == event_id)
-    )
-    groups = result.scalars().all()
-
-    result = await db.execute(select(Hole).where(Hole.event_id == event_id))
-    holes = result.scalars().all()
 
     return templates.TemplateResponse(request=request, name="event_setup.html", context={
         "event": {

@@ -465,7 +465,7 @@
         const div = el.querySelector('div');
         if (div && token) {
             const fullUrl = window.location.origin + '/score/' + token;
-            div.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(fullUrl)}" alt="QR Code for ${token}" />`;
+            div.innerHTML = `<a href="${fullUrl}" target="_blank"><img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(fullUrl)}" alt="QR Code for ${el.querySelector('h3').textContent}" /></a>`;
         }
     });
 </script>
