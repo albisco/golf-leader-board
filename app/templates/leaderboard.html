@@ -227,6 +227,7 @@
                         <th>Rank</th>
                         <th>Group</th>
                         <th>Players</th>
+                        <th>Hcp</th>
                         <th>Gross</th>
                         <th>${isFinal ? 'Net' : 'Running Net'}</th>
                         ${isFinal ? '' : '<th>Holes</th>'}
@@ -246,6 +247,7 @@
                     <td class="rank-cell rank-${entry.rank}">${entry.rank}</td>
                     <td class="group-cell">${entry.group_name}</td>
                     <td class="players-cell">${entry.players.map(p => p.name).join(', ')}</td>
+                    <td class="score-cell">${entry.group_handicap}</td>
                     <td class="score-cell"><span class="gross-score">${entry.holes_played > 0 ? entry.gross_total : '-'}</span> ${!isFinal ? holesDisplay : ''}</td>
                     <td class="score-cell">${netDisplay}</td>
                     ${isFinal ? '' : `<td class="score-cell">${entry.holes_played}/{{ event.hole_count }}</td>`}
