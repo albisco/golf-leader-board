@@ -124,3 +124,36 @@ async def test_get_event(db):
     
     assert response["name"] == "Test Event"
     assert response["status"] == "draft"
+
+
+@pytest.mark.asyncio
+async def test_update_group_handicap_persists(db):
+    """Regression: ISSUE-2679 — group_handicap saved via PUT must be readable on next page load.
+
+    Found by /qa on 2026-04-10
+    Report: .gstack/qa-reports/qa-report-localhost-2026-04-10.md
+
+    Before fix: saveGroup() called alert() without location.reload(), so the QR codes
+    tab showed the stale Jinja-rendered handicap (0) instead of the newly saved value.
+    The backend was saving correctly — this test verifies the backend contract holds.
+    """
+    from app.routers.events import (
+        create_event, create_group, update_group,
+        CreateEventRequest, CreateGroupRequest, UpdateGroupRequest,
+    )
+    from sqlalchemy import select
+    from app.tables import Group
+
+    event = await create_event(CreateEventRequest(name="Test Event", date=date(2026, 4, 15)), db)
+    group = await create_group(event.id, CreateGroupRequest(name="Group 1", group_handicap=0), db)
+
+    # Save group with handicap 12 (the user action that triggered the bug)
+    await update_group(event.id, group.id, UpdateGroupRequest(group_handicap=12, players=[]), db)
+
+    # Verify the handicap is persisted — simulates what the page reload reads from DB
+    result = await db.execute(select(Group).where(Group.id == group.id))
+    saved = result.scalar_one()
+    assert saved.group_handicap == 12, (
+        f"Expected group_handicap=12 after update, got {saved.group_handicap}. "
+        "If this fails, the QR tab will show stale handicap on page reload."
+    )
