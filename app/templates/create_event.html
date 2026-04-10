@@ -79,6 +79,7 @@ document.getElementById('create-event-form').addEventListener('submit', async fu
                 date: formData.get('date'),
                 format: formData.get('format'),
                 hole_count: parseInt(formData.get('hole_count')),
+                group_count: groupCount,
             })
         });
 
@@ -88,16 +89,6 @@ document.getElementById('create-event-form').addEventListener('submit', async fu
         }
 
         const event = await res.json();
-
-        // Auto-create groups
-        for (let i = 1; i <= groupCount; i++) {
-            await fetch(`/events/${event.id}/groups`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ name: `Group ${i}`, group_handicap: 0, players: [] })
-            });
-        }
-
         window.location.href = `/event/${event.id}/setup`;
     } catch (err) {
         errorDiv.textContent = err.message;

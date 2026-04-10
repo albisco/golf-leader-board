@@ -162,8 +162,14 @@ async def test_update_group_handicap_persists(db):
     event = await create_event(CreateEventRequest(name="Test Event", date=date(2026, 4, 15)), db)
     group = await create_group(event.id, CreateGroupRequest(name="Group 1", group_handicap=0), db)
 
-    # Save group with handicap 12 (the user action that triggered the bug)
-    await update_group(event.id, group.id, UpdateGroupRequest(group_handicap=12, players=[]), db)
+    # Save group with handicap 12 (UpdateGroupRequest requires >=2 players, 1 scorer)
+    await update_group(event.id, group.id, UpdateGroupRequest(
+        group_handicap=12,
+        players=[
+            {"name": "Player 1", "handicap": 10, "is_scorer": True},
+            {"name": "Player 2", "handicap": 8, "is_scorer": False},
+        ]
+    ), db)
 
     # Verify the handicap is persisted — simulates what the page reload reads from DB
     result = await db.execute(select(Group).where(Group.id == group.id))
@@ -172,3 +178,26 @@ async def test_update_group_handicap_persists(db):
         f"Expected group_handicap=12 after update, got {saved.group_handicap}. "
         "If this fails, the QR tab will show stale handicap on page reload."
     )
+
+@pytest.mark.asyncio
+async def test_create_event_with_groups_in_one_call(db):
+    """create_event with group_count creates groups in the same transaction.
+
+    Perf fix: eliminates N sequential HTTP calls for group creation.
+    One round-trip to the DB instead of 1 + N.
+    """
+    from app.routers.events import create_event, CreateEventRequest
+    from sqlalchemy import select
+    from app.tables import Group
+
+    response = await create_event(
+        CreateEventRequest(name="Golf Day", date=date(2026, 4, 15), group_count=4), db
+    )
+
+    groups = (await db.execute(
+        select(Group).where(Group.event_id == response.id)
+    )).scalars().all()
+
+    assert len(groups) == 4
+    assert [g.name for g in groups] == ["Group 1", "Group 2", "Group 3", "Group 4"]
+    assert all(g.qr_token for g in groups)
