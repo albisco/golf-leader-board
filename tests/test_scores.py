@@ -1,6 +1,7 @@
 """Test score submission, upsert, edit_count, validation, closed-event rejection."""
 import pytest
 from datetime import date
+from unittest.mock import AsyncMock, patch
 
 from app.tables import Event, Group, Hole, EventStatus
 
@@ -54,6 +55,39 @@ async def test_score_upsert(db):
     response2 = await submit_score(request2, db)
     assert response2.gross_score == 5
     assert response2.edit_count == 1
+
+
+@pytest.mark.asyncio
+async def test_score_edit_triggers_ws_broadcast(db):
+    """Editing an existing score (edit_count > 0) must trigger WebSocket broadcast."""
+    from app.routers.scores import submit_score, ScoreRequest
+
+    event = Event(name="Test", date=date(2026, 4, 15), join_code="test123", status=EventStatus.active)
+    db.add(event)
+    await db.flush()
+
+    hole = Hole(event_id=event.id, hole_number=1, par=4)
+    db.add(hole)
+    await db.flush()
+
+    group = Group(event_id=event.id, name="Group 1", group_handicap=5, qr_token="qr123")
+    db.add(group)
+    await db.flush()
+
+    # Submit initial score
+    request1 = ScoreRequest(group_id=group.id, hole_id=hole.id, gross_score=4)
+    await submit_score(request1, db)
+
+    # Edit the score — broadcast must fire
+    mock_broadcast = AsyncMock()
+    with patch("app.routers.scores.ws_manager.broadcast", mock_broadcast):
+        request2 = ScoreRequest(group_id=group.id, hole_id=hole.id, gross_score=5)
+        response2 = await submit_score(request2, db)
+
+    assert response2.edit_count == 1
+    mock_broadcast.assert_called_once()
+    call_args = mock_broadcast.call_args
+    assert call_args[0][0] == event.id  # broadcast targets the correct event
 
 
 @pytest.mark.asyncio

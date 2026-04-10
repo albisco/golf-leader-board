@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Error {{ status_code }} - Golf Leader Board{% endblock %}
+
+{% block content %}
+<div class="page-header" style="text-align:center;padding:3rem 1rem;">
+    <h1 style="font-size:4rem;font-weight:700;color:#d1d5db;margin:0;">{{ status_code }}</h1>
+    <p style="font-size:1.25rem;color:#374151;margin:1rem 0;">{{ detail }}</p>
+    <a href="/" class="btn btn-primary" style="margin-top:1.5rem;">Go Home</a>
+</div>
+{% endblock %}

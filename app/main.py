@@ -1,13 +1,16 @@
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.database import create_tables
 from app.routers import auth, events, scores, chat, pages
+from app.templates import templates
 
 
 @asynccontextmanager
@@ -46,6 +49,20 @@ app.include_router(chat.router)
 app.include_router(pages.router)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        return templates.TemplateResponse(
+            request=request,
+            name="error.html",
+            context={"status_code": exc.status_code, "detail": exc.detail},
+            status_code=exc.status_code,
+        )
+    from fastapi.responses import JSONResponse
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 @app.get("/health")

@@ -1,8 +1,9 @@
 import secrets
 from datetime import date
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -17,6 +18,7 @@ class CreateEventRequest(BaseModel):
     date: date
     hole_count: int = 18
     format: str = "ambrose_4ball"
+    group_count: int = 0
 
 
 class CreateGroupRequest(BaseModel):
@@ -24,6 +26,12 @@ class CreateGroupRequest(BaseModel):
     group_handicap: int = 0
     players: list[dict] = Field(default_factory=list)
 
+    @field_validator("players", mode="before")
+    @classmethod
+    def validate_players(cls, v: Any) -> list[dict]:
+        if not isinstance(v, list):
+            return []
+        return v
 
 class UpdateHolesRequest(BaseModel):
     holes: list[dict]  # [{id: int, par: int}]
@@ -32,6 +40,20 @@ class UpdateHolesRequest(BaseModel):
 class UpdateGroupRequest(BaseModel):
     group_handicap: int = 0
     players: list[dict] = Field(default_factory=list)
+
+    @field_validator("players", mode="before")
+    @classmethod
+    def validate_players(cls, v: Any) -> list[dict]:
+        if not isinstance(v, list):
+            return []
+        return v
+
+    def model_post_init(self, ctx: Any) -> None:
+        scorers = sum(1 for p in self.players if isinstance(p, dict) and p.get("is_scorer", False))
+        if len(self.players) < 2:
+            raise ValueError("Group must have at least 2 players")
+        if scorers != 1:
+            raise ValueError("Group must have exactly 1 scorer")
 
 
 class GroupResponse(BaseModel):
@@ -57,7 +79,7 @@ async def create_event(
     db: AsyncSession = Depends(get_db),
 ):
     join_code = secrets.token_urlsafe(8)
-    
+
     event = Event(
         name=request.name,
         date=request.date,
@@ -67,19 +89,21 @@ async def create_event(
         status=EventStatus.draft,
     )
     db.add(event)
-    await db.flush()
-    
+    await db.flush()  # get event.id
+
     for hole_num in range(1, request.hole_count + 1):
-        hole = Hole(
+        db.add(Hole(event_id=event.id, hole_number=hole_num, par=4))
+
+    for i in range(1, request.group_count + 1):
+        db.add(Group(
             event_id=event.id,
-            hole_number=hole_num,
-            par=4,
-        )
-        db.add(hole)
-    
+            name=f"Group {i}",
+            group_handicap=0,
+            qr_token=secrets.token_urlsafe(32),
+        ))
+
     await db.commit()
-    await db.refresh(event)
-    
+
     return EventResponse(
         id=event.id,
         name=event.name,
@@ -170,8 +194,7 @@ async def create_group(
         db.add(player)
     
     await db.commit()
-    await db.refresh(group)
-    
+
     return GroupResponse(
         id=group.id,
         name=group.name,
