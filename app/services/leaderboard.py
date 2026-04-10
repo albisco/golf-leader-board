@@ -44,7 +44,16 @@ async def get_leaderboard(db: AsyncSession, event_id: int) -> dict:
         group_scores = scores_by_group.get(group.id, [])
         holes_played = len(group_scores)
         gross_total = sum(s.gross_score for s in group_scores)
-        net_total = gross_total - group.group_handicap
+        
+        if holes_played > 0:
+            handicap_per_hole = group.group_handicap / event.hole_count
+            running_handicap = int(handicap_per_hole * holes_played)
+            running_net = gross_total - running_handicap
+        else:
+            running_handicap = 0
+            running_net = None
+        
+        net_total = gross_total - group.group_handicap if holes_played == event.hole_count else None
         
         leaderboard.append({
             "group_id": group.id,
@@ -53,6 +62,8 @@ async def get_leaderboard(db: AsyncSession, event_id: int) -> dict:
             "players": [{"name": p.name, "handicap": p.handicap, "is_scorer": p.is_scorer} for p in group.players],
             "holes_played": holes_played,
             "gross_total": gross_total,
+            "running_handicap": running_handicap,
+            "running_net": running_net,
             "net_total": net_total if holes_played == event.hole_count else None,
             "scores": [
                 {
@@ -69,7 +80,7 @@ async def get_leaderboard(db: AsyncSession, event_id: int) -> dict:
     if is_final:
         leaderboard.sort(key=lambda x: (x["net_total"] is None, x["net_total"] or 999999, x["gross_total"]))
     else:
-        leaderboard.sort(key=lambda x: (x["holes_played"] == 0, -x["holes_played"], x["gross_total"]))
+        leaderboard.sort(key=lambda x: (x["holes_played"] == 0, -x["holes_played"], x["running_net"] if x["running_net"] is not None else 999999, x["gross_total"]))
     
     for i, entry in enumerate(leaderboard):
         entry["rank"] = i + 1

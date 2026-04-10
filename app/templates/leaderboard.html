@@ -270,8 +270,9 @@
                         <th>Rank</th>
                         <th>Group</th>
                         <th>Players</th>
-                        ${isFinal ? '<th>Net</th>' : '<th>Gross</th>'}
-                        ${isFinal ? '' : '<th>Holes</th>'}
+                        <th>Gross</th>
+                        ${!isFinal ? '<th>Adj</th>' : ''}
+                        ${isFinal ? '<th>Net</th>' : '<th>Holes</th>'}
                     </tr>
                 </thead>
                 <tbody>
@@ -279,6 +280,9 @@
         
         data.leaderboard.forEach(entry => {
             const grossDisplay = isFinal ? '' : `<span class="gross-score">${entry.gross_total}</span>`;
+            const adjDisplay = !isFinal && entry.holes_played > 0 
+                ? `<span class="net-score">${entry.running_net}</span><span class="incomplete-badge" style="margin-left: 0.25rem; font-size: 0.625rem;">-${entry.running_handicap}</span>`
+                : '';
             const holesDisplay = entry.holes_played === {{ event.hole_count }} ? '' : `<span class="incomplete-badge">${entry.holes_played} holes</span>`;
             const netDisplay = isFinal && entry.net_total !== null ? `<span class="net-score">${entry.net_total}</span>` : '-';
             
@@ -287,7 +291,9 @@
                     <td class="rank-cell rank-${entry.rank}">${entry.rank}</td>
                     <td class="group-cell">${entry.group_name}</td>
                     <td class="players-cell">${entry.players.map(p => p.name).join(', ')}</td>
-                    ${isFinal ? `<td class="score-cell">${netDisplay}</td>` : `<td class="score-cell">${grossDisplay} ${holesDisplay}</td>`}
+                    ${isFinal ? `<td class="score-cell">${grossDisplay}</td>` : `<td class="score-cell">${grossDisplay}</td>`}
+                    ${!isFinal ? `<td class="score-cell">${adjDisplay}</td>` : ''}
+                    ${isFinal ? `<td class="score-cell">${netDisplay}</td>` : `<td class="score-cell">${holesDisplay}</td>`}
                     ${isFinal ? '' : `<td class="score-cell">${entry.holes_played}/{{ event.hole_count }}</td>`}
                 </tr>
             `;
