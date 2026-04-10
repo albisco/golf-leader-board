@@ -110,10 +110,6 @@ async def websocket_endpoint(
 ):
     await ws_manager.connect(event_id, websocket)
     try:
-        async with AsyncSessionLocal() as db:
-            leaderboard_data = await get_leaderboard(db, event_id)
-        await websocket.send_json(leaderboard_data)
-
         while True:
             data = await websocket.receive_text()
     except WebSocketDisconnect:
